@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Signal</title>
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --text: #14181f; --muted: #5d6675; --line: #e2e6ec;
+  --buy: #0f7a4d; --buy-bg: #e3f5ec; --sell: #b3261e; --sell-bg: #fbe9e7; --hold: #7a5a00; --hold-bg: #fdf3d6;
+  --accent: #2557d6; --series2: #c2610c; --series3: #8a94a6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116; --surface: #171b22; --text: #e8ebf0; --muted: #9aa4b2; --line: #2a303a;
+    --buy: #4cc38a; --buy-bg: #12301f; --sell: #ff8a80; --sell-bg: #3a1815; --hold: #f2c94c; --hold-bg: #33290b;
+    --accent: #7aa2ff; --series2: #f0a05a; --series3: #77839a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 60px; }
+h1 { font-size: 22px; margin: 0 0 2px; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+.sub { color: var(--muted); margin: 0 0 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+input[type=text] { font: inherit; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); width: 180px; text-transform: uppercase; }
+button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .55; cursor: wait; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 4px 12px; border-radius: 999px; font-size: 14px; letter-spacing: .02em; }
+.badge.BUY { color: var(--buy); background: var(--buy-bg); }
+.badge.SELL { color: var(--sell); background: var(--sell-bg); }
+.badge.HOLD { color: var(--hold); background: var(--hold-bg); }
+.big { font-size: 28px; padding: 8px 18px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.status { color: var(--muted); margin: 8px 0; min-height: 22px; }
+.error { color: var(--sell); }
+.probbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 12px 0 6px; background: var(--line); }
+.probbar span { display: block; height: 100%; }
+.probbar .pb { background: var(--buy); } .probbar .ph { background: var(--series3); } .probbar .ps { background: var(--sell); }
+.legend { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.click { cursor: pointer; } tr.click:hover { background: var(--bg); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.chip { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; display: inline-flex; gap: 4px; align-items: center; }
+.chip button { border: 0; background: none; padding: 0 6px; color: var(--muted); font-size: 15px; }
+.bars .b { display: grid; grid-template-columns: 150px 1fr; gap: 8px; align-items: center; margin: 5px 0; font-size: 13px; }
+.bars .track { background: var(--line); border-radius: 4px; height: 8px; }
+.bars .fill { background: var(--accent); height: 8px; border-radius: 4px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+.kpi { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.kpi .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+svg text { fill: var(--muted); font-size: 11px; }
+.chartwrap { position: relative; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12px; display: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.key { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+.key i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+.disclaimer { color: var(--muted); font-size: 13px; margin-top: 24px; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Stock Signal</h1>
+  <p class="sub">Buy / Hold / Sell decision support from prices, news tone, cross-asset moves, macro data and market behavior.</p>
+
+  <div class="card">
+    <form id="form" class="row">
+      <input id="ticker" type="text" placeholder="Ticker, e.g. AAPL" maxlength="12" autocomplete="off" aria-label="Ticker symbol">
+      <button class="primary" type="submit" id="go">Analyze</button>
+      <label class="chk"><input type="checkbox" id="news" checked> Use news history (slower the first time)</label>
+    </form>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+  </div>
+
+  <div id="detail" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2 id="dTitle" style="margin:0;font-size:22px"></h2><div id="dSub" class="muted small"></div></div>
+      </div>
+      <div class="grid2" style="margin-top:14px" id="hzCards"></div>
+    </div>
+
+    <div class="card">
+      <h2>Price, last 400 trading days</h2>
+      <div class="chartwrap" id="priceChart"></div>
+      <div class="key"><span><i style="background:var(--accent)"></i>Close</span><span><i style="background:var(--series2)"></i>50-day average</span><span><i style="background:var(--series3)"></i>200-day average</span></div>
+    </div>
+
+    <div class="card">
+      <h2>What is driving these calls</h2>
+      <p class="muted small" style="margin-top:-6px">Features whose shuffling hurts the model most on recent data. This shows what the model relies on, not why the market will move.</p>
+      <div class="grid2"><div><div class="small muted">Swing</div><div class="bars" id="drvSwing"></div></div><div><div class="small muted">Long-term</div><div class="bars" id="drvLong"></div></div></div>
+    </div>
+
+    <div class="card">
+      <h2>News right now</h2>
+      <div id="news-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>Backtest: would this have worked?</h2>
+      <p class="muted small" style="margin-top:-6px">Walk-forward: the model is retrained over time and only predicts dates after its training data. Buy goes long, Sell goes to cash, Hold keeps the current position. Includes trading costs.</p>
+      <div class="row">
+        <button id="btSwing">Run swing backtest</button>
+        <button id="btLong">Run long-term backtest</button>
+      </div>
+      <div id="btStatus" class="status"></div>
+      <div id="btOut"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Watchlist</h2>
+      <div class="row">
+        <input id="addT" type="text" placeholder="Add ticker" maxlength="12" aria-label="Add ticker to watchlist" style="width:120px">
+        <button id="addBtn" type="button">Add</button>
+        <button id="refresh" type="button">Refresh signals</button>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <table style="margin-top:10px">
+      <thead><tr><th>Ticker</th><th class="num">Price</th><th>Swing</th><th>Long-term</th></tr></thead>
+      <tbody id="wlBody"></tbody>
+    </table>
+  </div>
+
+  <p class="disclaimer">Educational decision support only, not financial advice. Models can and do lose money, and backtest results do not guarantee future performance. If the backtest does not beat buy-and-hold after costs, trust the backtest over the signal.</p>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const ICON = { BUY: "▲", HOLD: "●", SELL: "▼" };
+const HZ_NAME = { swing: "Swing", long: "Long-term" };
+
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+}
+const pct = (x, d = 1) => (x == null ? "n/a" : (x * 100).toFixed(d) + "%");
+const spct = (x, d = 1) => (x == null ? "n/a" : (x >= 0 ? "+" : "") + (x * 100).toFixed(d) + "%");
+const money = (x) => "$" + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function badge(call, big) { return el("span", { class: "badge " + call + (big ? " big" : "") }, ICON[call] + " " + call); }
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function runJob(url, onTick) {
+  const { job } = await getJSON(url);
+  const t0 = Date.now();
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 1200));
+    const j = await getJSON("/api/job?id=" + job);
+    if (j.status === "done") return j.result;
+    if (j.status === "error") throw new Error(j.error);
+    if (onTick) onTick(Math.round((Date.now() - t0) / 1000));
+  }
+}
+const useNews = () => ($("news").checked ? "1" : "0");
+
+/* ---------- generic line chart (SVG) ---------- */
+function lineChart(host, dates, series, opts = {}) {
+  host.replaceChildren();
+  const W = 720, H = opts.height || 260, m = { l: 52, r: 10, t: 10, b: 24 };
+  const all = series.flatMap((s) => s.values).filter((v) => v != null);
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (opts.zeroBase) lo = Math.min(lo, 0);
+  const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+  const n = dates.length;
+  const x = (i) => m.l + (i / (n - 1)) * (W - m.l - m.r);
+  const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", "100%"); svg.setAttribute("role", "img");
+  if (opts.label) svg.setAttribute("aria-label", opts.label);
+  const mk = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+  for (let g = 0; g <= 4; g++) {
+    const v = lo + ((hi - lo) * g) / 4, yy = y(v);
+    svg.append(mk("line", { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: "var(--line)", "stroke-width": 1 }));
+    svg.append(mk("text", { x: m.l - 6, y: yy + 4, "text-anchor": "end" }, (opts.fmt || ((q) => q.toFixed(0)))(v)));
+  }
+  for (const i of [0, Math.floor(n / 2), n - 1]) svg.append(mk("text", { x: x(i), y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }, dates[i]));
+  for (const s of series) {
+    let d = "", pen = false;
+    s.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; });
+    svg.append(mk("path", { d, fill: "none", stroke: s.color, "stroke-width": s.width || 2, "stroke-linejoin": "round", ...(s.dash ? { "stroke-dasharray": s.dash } : {}) }));
+  }
+  const vline = mk("line", { y1: m.t, y2: H - m.b, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" });
+  svg.append(vline);
+  const tip = el("div", { class: "tip" });
+  host.append(svg, tip);
+  svg.addEventListener("mousemove", (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - m.l) / (W - m.l - m.r)) * (n - 1))));
+    vline.setAttribute("x1", x(i)); vline.setAttribute("x2", x(i)); vline.setAttribute("visibility", "visible");
+    tip.replaceChildren(el("div", { text: dates[i] }), ...series.filter((s) => s.values[i] != null).map((s) => el("div", { text: s.name + ": " + (opts.tipFmt || opts.fmt || ((q) => q.toFixed(2)))(s.values[i]) })));
+    tip.style.display = "block";
+    const left = (x(i) / W) * r.width;
+    tip.style.left = Math.min(left + 12, r.width - 150) + "px"; tip.style.top = "8px";
+  });
+  svg.addEventListener("mouseleave", () => { vline.setAttribute("visibility", "hidden"); tip.style.display = "none"; });
+}
+
+/* ---------- detail view ---------- */
+function hzCard(key, h) {
+  const c = el("div", { class: "card", style: "margin:0" });
+  c.append(el("div", { class: "muted small", text: h.label }), el("div", { style: "margin:8px 0" }, badge(h.call, true)));
+  const bar = el("div", { class: "probbar", role: "img", "aria-label": `Buy ${pct(h.p_buy, 0)}, hold ${pct(h.p_hold, 0)}, sell ${pct(h.p_sell, 0)}` },
+    el("span", { class: "pb", style: `width:${h.p_buy * 100}%` }), el("span", { class: "ph", style: `width:${h.p_hold * 100}%` }), el("span", { class: "ps", style: `width:${h.p_sell * 100}%` }));
+  c.append(bar, el("div", { class: "legend" }, el("span", { text: "Buy " + pct(h.p_buy, 0) }), el("span", { text: "Hold " + pct(h.p_hold, 0) }), el("span", { text: "Sell " + pct(h.p_sell, 0) })));
+  return c;
+}
+function drivers(host, d) {
+  host.replaceChildren();
+  const entries = Object.entries(d || {}); const max = Math.max(...entries.map((e) => e[1]), 1e-9);
+  for (const [k, v] of entries) host.append(el("div", { class: "b" }, el("span", { text: k.replaceAll("_", " ") }), el("div", { class: "track" }, el("div", { class: "fill", style: `width:${Math.max(2, (Math.max(v, 0) / max) * 100)}%` }))));
+}
+function sentimentRow(label, s) {
+  const box = el("div", { style: "margin-bottom:10px" });
+  if (!s || !s.n) { box.append(el("div", { class: "muted", text: label + ": no headlines retrieved." })); return box; }
+  const tone = s.mean > 0.1 ? "positive" : s.mean < -0.1 ? "negative" : "mixed";
+  box.append(el("div", {}, el("strong", { text: label + ": " }), document.createTextNode(`${tone} (${s.mean >= 0 ? "+" : ""}${s.mean.toFixed(2)} across ${s.n} headlines)`)));
+  if (s.top_pos) box.append(el("div", { class: "small muted", text: "Most positive: " + s.top_pos }));
+  if (s.top_neg) box.append(el("div", { class: "small muted", text: "Most negative: " + s.top_neg }));
+  return box;
+}
+let currentTicker = null;
+function showDetail(r) {
+  currentTicker = r.ticker;
+  $("detail").classList.remove("hidden");
+  $("dTitle").textContent = r.ticker + "  " + money(r.price);
+  $("dSub").textContent = "Data as of " + r.as_of;
+  $("hzCards").replaceChildren(hzCard("swing", r.swing), hzCard("long", r.long));
+  if (r.history) lineChart($("priceChart"), r.history.dates, [
+    { name: "Close", values: r.history.close, color: "var(--accent)" },
+    { name: "50-day", values: r.history.sma50, color: "var(--series2)", width: 1.5 },
+    { name: "200-day", values: r.history.sma200, color: "var(--series3)", width: 1.5, dash: "5 4" }], { fmt: (q) => "$" + q.toFixed(0), tipFmt: (q) => "$" + q.toFixed(2), label: "Price chart" });
+  drivers($("drvSwing"), r.swing.drivers); drivers($("drvLong"), r.long.drivers);
+  $("news-box").replaceChildren(sentimentRow(r.ticker + " headlines", r.headline_sentiment), sentimentRow("Broad market headlines", r.market_sentiment));
+  $("btOut").replaceChildren(); $("btStatus").textContent = "";
+}
+async function analyze(t) {
+  t = (t || "").trim().toUpperCase(); if (!t) return;
+  $("ticker").value = t; $("go").disabled = true; $("status").className = "status"; $("status").textContent = "Analyzing " + t + "…";
+  try {
+    const r = await runJob(`/api/start?kind=signal&ticker=${encodeURIComponent(t)}&news=${useNews()}`, (s) => {
+      $("status").textContent = `Analyzing ${t}… ${s}s` + (s > 15 ? " (first run downloads years of data, hang tight)" : "");
+    });
+    $("status").textContent = ""; showDetail(r); updateWatchRow(r);
+    $("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { $("status").className = "status error"; $("status").textContent = "Could not analyze " + t + ": " + e.message; }
+  finally { $("go").disabled = false; }
+}
+
+/* ---------- backtest ---------- */
+async function backtest(hz) {
+  if (!currentTicker) return;
+  const t = currentTicker; $("btSwing").disabled = $("btLong").disabled = true; $("btOut").replaceChildren();
+  $("btStatus").className = "status"; $("btStatus").textContent = `Running ${HZ_NAME[hz].toLowerCase()} backtest for ${t}…`;
+  try {
+    const r = await runJob(`/api/start?kind=backtest&ticker=${encodeURIComponent(t)}&horizon=${hz}&news=${useNews()}`, (s) => { $("btStatus").textContent = `Running ${HZ_NAME[hz].toLowerCase()} backtest for ${t}… ${s}s (retrains the model many times)`; });
+    $("btStatus").textContent = ""; renderBacktest(r);
+  } catch (e) { $("btStatus").className = "status error"; $("btStatus").textContent = "Backtest failed: " + e.message; }
+  finally { $("btSwing").disabled = $("btLong").disabled = false; }
+}
+function renderBacktest(r) {
+  const out = $("btOut"); out.replaceChildren();
+  const st = r.strategy, bh = r.buy_hold, beat = st.total_return > bh.total_return;
+  out.append(el("p", {}, el("strong", { text: `${r.ticker}, ${HZ_NAME[r.horizon]}, ${r.start} to ${r.end}: ` }),
+    document.createTextNode(beat ? "the strategy beat buy-and-hold over this period." : "the strategy did not beat buy-and-hold over this period.")));
+  const chart = el("div", { class: "chartwrap" }); out.append(chart);
+  lineChart(chart, r.curves.dates, [
+    { name: "Strategy", values: r.curves.strategy, color: "var(--accent)" },
+    { name: "Buy and hold", values: r.curves.buy_hold, color: "var(--series2)" }], { fmt: (q) => q.toFixed(2) + "x", label: "Growth of $1, strategy vs buy and hold" });
+  out.append(el("div", { class: "key" }, el("span", {}, el("i", { style: "background:var(--accent)" }), "Strategy"), el("span", {}, el("i", { style: "background:var(--series2)" }), "Buy and hold"), el("span", { text: "Growth of $1" })));
+  const rows = [["Total return", spct(st.total_return), spct(bh.total_return)], ["Annualized return", spct(st.cagr), spct(bh.cagr)],
+    ["Sharpe ratio", st.sharpe.toFixed(2), bh.sharpe.toFixed(2)], ["Max drawdown", spct(st.max_drawdown), spct(bh.max_drawdown)]];
+  const tbl = el("table", { style: "margin-top:12px" }, el("thead", {}, el("tr", {}, el("th", { text: "" }), el("th", { class: "num", text: "Strategy" }), el("th", { class: "num", text: "Buy and hold" }))),
+    el("tbody", {}, ...rows.map((x) => el("tr", {}, el("td", { text: x[0] }), el("td", { class: "num", text: x[1] }), el("td", { class: "num", text: x[2] })))));
+  out.append(tbl);
+  const sg = r.signals, k = el("div", { class: "kpis" });
+  const kpi = (v, l) => el("div", { class: "kpi" }, el("div", { class: "v", text: v }), el("div", { class: "small muted", text: l }));
+  k.append(kpi(String(r.n_trades), "position changes"), kpi(pct(r.pct_time_invested, 0), "time invested"), kpi(pct(sg.accuracy), "calls matching outcome"));
+  for (const c of ["BUY", "HOLD", "SELL"]) if (sg.avg_fwd_return_by_call[c] != null) k.append(kpi(spct(sg.avg_fwd_return_by_call[c]), `avg forward return after ${c} (n=${sg.call_counts[c] || 0})`));
+  k.append(kpi(spct(sg.baseline_avg_fwd_return), "avg forward return, any day"));
+  out.append(k);
+  out.append(el("p", { class: "small muted", text: "A useful signal shows higher forward returns after BUY than after SELL, and beats the any-day baseline." }));
+}
+
+/* ---------- watchlist ---------- */
+let watch = [];
+const rowFor = {};
+function saveWatch() { try { localStorage.setItem("watch", JSON.stringify(watch)); } catch (_) {} }
+function renderChips() {
+  $("chips").replaceChildren(...watch.map((t) => el("span", { class: "chip" }, t, el("button", { type: "button", "aria-label": "Remove " + t, text: "×" }))));
+  [...$("chips").children].forEach((c, i) => c.querySelector("button").addEventListener("click", () => { watch.splice(i, 1); saveWatch(); renderAll(); }));
+}
+function renderTable() {
+  $("wlBody").replaceChildren();
+  for (const t of watch) {
+    const tr = el("tr", { class: "click", tabindex: "0" }, el("td", { text: t }), el("td", { class: "num", text: "–" }), el("td", { text: "–" }), el("td", { text: "–" }));
+    tr.addEventListener("click", () => analyze(t)); tr.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(t); });
+    rowFor[t] = tr; $("wlBody").append(tr);
+  }
+}
+function updateWatchRow(r) {
+  const tr = rowFor[r.ticker]; if (!tr) return;
+  tr.children[1].textContent = money(r.price);
+  tr.children[2].replaceChildren(badge(r.swing.call)); tr.children[3].replaceChildren(badge(r.long.call));
+}
+function renderAll() { renderChips(); renderTable(); }
+let refreshing = false;
+async function refreshWatch() {
+  if (refreshing) return; refreshing = true; $("refresh").disabled = true;
+  for (const t of watch) {
+    const tr = rowFor[t]; if (!tr) continue;
+    tr.children[2].textContent = "…"; tr.children[3].textContent = "…";
+    try { updateWatchRow(await runJob(`/api/start?kind=signal&ticker=${encodeURIComponent(t)}&news=${useNews()}`)); }
+    catch (e) { tr.children[2].textContent = "error"; tr.children[3].textContent = e.message.slice(0, 60); }
+  }
+  refreshing = false; $("refresh").disabled = false;
+}
+function addTicker() {
+  const t = $("addT").value.trim().toUpperCase();
+  if (/^[A-Z0-9.\-^=]{1,12}$/.test(t) && !watch.includes(t)) { watch.push(t); saveWatch(); renderAll(); }
+  $("addT").value = "";
+}
+
+/* ---------- wiring ---------- */
+$("form").addEventListener("submit", (e) => { e.preventDefault(); analyze($("ticker").value); });
+$("btSwing").addEventListener("click", () => backtest("swing"));
+$("btLong").addEventListener("click", () => backtest("long"));
+$("addBtn").addEventListener("click", addTicker);
+$("addT").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addTicker(); } });
+$("refresh").addEventListener("click", refreshWatch);
+(async function init() {
+  try { watch = JSON.parse(localStorage.getItem("watch") || "null") || []; } catch (_) { watch = []; }
+  if (!watch.length) { try { watch = (await getJSON("/api/watchlist")).tickers; } catch (_) { watch = ["AAPL", "MSFT", "NVDA"]; } }
+  renderAll();
+})();
+</script>
+</body>
+</html>
